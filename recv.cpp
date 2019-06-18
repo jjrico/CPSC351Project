@@ -13,9 +13,15 @@ using namespace std;
 
 /* The size of the shared memory segment */
 #define SHARED_MEMORY_CHUNK_SIZE 1000
+#define KEY_FILENAME "keyfile.txt"
+#define BUFFER_LEN 1024
+
+/* forward declarations */
+void bail(const char* msg, int exitCode);
 
 /* The ids for the shared memory segment and the message queue */
-int shmid, msqid;
+int shmid = 0;
+int msqid = 0;
 
 /* The pointer to the shared memory */
 void *sharedMemPtr = NULL;
@@ -34,13 +40,14 @@ string recvFileName() {
   fileNameMsg fMsg;
 
   /* TODO: Receive the file name using msgrcv() */
-  std::cout << "Hello" << std::endl;
-  msgrcv(msqid, &fMsg, sizeof(fileNameMsg) - sizeof(long), FILE_NAME_TRANSFER_TYPE, 0);
-  //perror(strerror(errno));
- std::cout << "err: " << errno << endl;
+
+  if (-1 == msgrcv(msqid, &fMsg, sizeof(fileNameMsg) - sizeof(long), FILE_NAME_TRANSFER_TYPE, 0))
+    bail("Receive filename", errno);
+
 
   /* TODO: return the received file name */
-  std::cout << "File name: " << fMsg.fileName << std::endl;
+  std::cout << "Received file name: " << fMsg.fileName << std::endl;
+
   fileName = fMsg.fileName;
 
   return fileName;
@@ -52,13 +59,20 @@ string recvFileName() {
  * @param sharedMemPtr - the pointer to the shared memory
  */
 void init(int &shmid, int &msqid, void *&sharedMemPtr) {
+  shmid = msqid = 0;
+  sharedMemPtr = nullptr;
 
   /* TODO:
   1. Create a file called keyfile.txt containing string "Hello world" (you may
   do so manually or from the code).
           // Did manually
   2. Use ftok("keyfile.txt", 'a') in order to generate the key. */
-  key_t key = ftok("keyfile.txt", 'a');
+  key_t key = ftok(KEY_FILENAME, 'a');
+
+  if (-1 == key) { // error has occurred
+    bail("Could not generate key -- make sure " KEY_FILENAME " exists", EXIT_FAILURE);
+  }
+
   /*
 3. Use will use this key in the TODO's below. Use the same key for the queue
 and the shared memory segment. This also serves to illustrate the difference
@@ -69,12 +83,31 @@ on the system has a unique id, but different objects may have the same key.
 
   /* TODO: Allocate a shared memory segment. The size of the segment must be
    * SHARED_MEMORY_CHUNK_SIZE. */
-  shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT);
+  shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT | IPC_EXCL);
+
+  if (-1 == shmid) {
+    switch (errno) {
+        case EEXIST:
+          errno = 0;
+          bail("Only one receiver program may run at a time", EEXIST);
+
+        default:
+          bail("allocating shared memory segment", errno);
+    }
+  }
 
   /* TODO: Attach to the shared memory */
   sharedMemPtr = (void *)shmat(shmid, NULL, 0);
+
+  if ((void*)-1 == sharedMemPtr) {
+    bail("failed to attach to shared memory segment", errno);
+  }
+
   /* TODO: Create a message queue */
-  msqid = msgget(key, S_IRUSR | S_IWUSR | IPC_CREAT);
+  if (-1 == (msqid = msgget(key, S_IRUSR | S_IWUSR | IPC_CREAT))) {
+    bail("failed to create message queue", errno);
+  }
+
   /* TODO: Store the IDs and the pointer to the shared memory region in the
    * corresponding parameters */
 }
@@ -125,7 +158,11 @@ unsigned long mainLoop(const char *fileName) {
      * song.mp3__recv.
      */
     message msg;
-    msgrcv(msqid, &msg, sizeof(message) - sizeof(long), SENDER_DATA_TYPE, 0);
+    if (-1 == msgrcv(msqid, &msg, sizeof(message) - sizeof(long), SENDER_DATA_TYPE, 0)) {
+      fclose(fp);
+      bail("failed to retrieve next data block", errno);
+    }
+
     msgSize = msg.size;
 
     /* If the sender is not telling us that we are done, then get to work */
@@ -143,7 +180,11 @@ unsigned long mainLoop(const char *fileName) {
        */
       ackMessage ackMsg;
       ackMsg.mtype = RECV_DONE_TYPE;
-      msgsnd(msqid, &ackMsg, sizeof(ackMessage) - sizeof(long), 0);
+
+      if (-1 == msgsnd(msqid, &ackMsg, sizeof(ackMessage) - sizeof(long), 0)) {
+          fclose(fp);
+          bail("failed to send ack message to sender", errno);
+      }
     }
     /* We are done */
     else {
@@ -163,11 +204,19 @@ unsigned long mainLoop(const char *fileName) {
  */
 void cleanUp(const int &shmid, const int &msqid, void *sharedMemPtr) {
   /* TODO: Detach from shared memory */
-  shmdt(sharedMemPtr);
+  if (sharedMemPtr != nullptr)
+    shmdt(sharedMemPtr);
+
   /* TODO: Deallocate the shared memory segment */
-  shmctl(shmid, IPC_RMID, NULL);
+  if (-1 == shmctl(shmid, IPC_RMID, NULL)) { // doc doesn't specify domain of valid shmid
+    perror("deallocating shared memory segment");
+    // nothing to be done about it, continue on
+  }
+
   /* TODO: Deallocate the message queue */
-  msgctl(msqid, IPC_RMID, NULL);
+  if (msqid > 0 && -1 == msgctl(msqid, IPC_RMID, NULL)) { // valid msqid are nonnegative ints
+    perror("deallocating message queue");
+  }
 }
 
 /**
@@ -179,6 +228,21 @@ void ctrlCSignal(int signal) {
   cleanUp(shmid, msqid, sharedMemPtr);
 }
 
+
+/**
+ * Prints a failure message and cleans up any allocated resources
+ * @param msg - failure message to display
+ * @param exitCode - program exit code
+ */
+void bail(const char* msg, int exitCode) {
+  if (errno != 0)
+    perror(msg);
+  else std::cout << msg << std::endl;
+
+  cleanUp(shmid, msqid, sharedMemPtr);
+  exit(exitCode);
+}
+
 int main(int argc, char **argv) {
 
   /* TODO: Install a signal handler (see signaldemo.cpp sample file).
@@ -186,10 +250,9 @@ int main(int argc, char **argv) {
    * queue and the shared memory segment before exiting. You may add
    * the cleaning functionality in ctrlCSignal().
    */
-  std::cout << "Calling signal" << std::endl;
   signal(SIGINT, ctrlCSignal);
+
   /* Initialize */
-  std::cout << "Initializing shared memory" << std::endl;
   init(shmid, msqid, sharedMemPtr);
 
   /* Receive the file name from the sender */
@@ -197,7 +260,6 @@ int main(int argc, char **argv) {
   string fileName = recvFileName();
 
   /* Go to the main loop */
-  std::cout << "Main loop" << std::endl;
   fprintf(stderr, "The number of bytes received is: %lu\n",
           mainLoop(fileName.c_str()));
 
