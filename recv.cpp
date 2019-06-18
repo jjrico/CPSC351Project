@@ -78,14 +78,9 @@ on the system has a unique id, but different objects may have the same key.
   shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT | IPC_EXCL);
 
   if (-1 == shmid) {
-    switch (errno) {
-        case EEXIST:
-          errno = 0;
-          bail("Only one receiver program may run at a time", EEXIST);
-
-        default:
-          bail("allocating shared memory segment", errno);
-    }
+    if (errno == EEXIST)
+      goto multiple;
+    else bail("allocating shared memory segment", errno);
   }
 
   /* TODO: Attach to the shared memory */
@@ -96,12 +91,21 @@ on the system has a unique id, but different objects may have the same key.
   }
 
   /* TODO: Create a message queue */
-  if (-1 == (msqid = msgget(key, S_IRUSR | S_IWUSR | IPC_CREAT))) {
-    bail("failed to create message queue", errno);
+  if (-1 == (msqid = msgget(key, S_IRUSR | S_IWUSR | IPC_CREAT | IPC_EXCL))) {
+    if (errno == EEXIST)
+      goto multiple;
+    else bail("failed to create message queue", errno);
   }
 
   /* TODO: Store the IDs and the pointer to the shared memory region in the
    * corresponding parameters */
+
+   return;
+
+
+   multiple:
+    errno = 0;
+    bail("Only one receiver program may run at a time", EEXIST);
 }
 
 /**
@@ -200,15 +204,11 @@ void cleanUp() {
     shmdt(sharedMemPtr);
 
   /* TODO: Deallocate the shared memory segment */
-  if (-1 == shmctl(shmid, IPC_RMID, NULL)) { // doc doesn't specify domain of valid shmid
-    perror("deallocating shared memory segment");
-    // nothing to be done about it, continue on
-  }
+  shmctl(shmid, IPC_RMID, NULL);
 
   /* TODO: Deallocate the message queue */
-  if (msqid > 0 && -1 == msgctl(msqid, IPC_RMID, NULL)) { // valid msqid are nonnegative ints
-    perror("deallocating message queue");
-  }
+  msgctl(msqid, IPC_RMID, NULL);
+
 }
 
 /**
@@ -234,7 +234,7 @@ int main(int argc, char **argv) {
   init(shmid, msqid, sharedMemPtr);
 
   /* Receive the file name from the sender */
-  std::cout << "Recieving filename" << std::endl;
+  std::cout << "Waiting for file name..." << std::endl;
   string fileName = recvFileName();
 
   /* Go to the main loop */

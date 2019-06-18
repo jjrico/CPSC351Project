@@ -64,8 +64,7 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
  */
 void cleanUp() {
   /* TODO: Detach from shared memory */
-  if (-1 == shmdt(sharedMemPtr))
-    perror("cleanUp");
+  shmdt(sharedMemPtr);
 }
 
 /**
@@ -192,6 +191,14 @@ int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "USAGE: %s <FILE NAME>\n", argv[0]);
     exit(-1);
+  }
+
+  // make sure file actually exists
+  struct stat fStat;
+
+  if (stat(argv[1], &fStat) != 0) {
+    std::cerr << "File not found: " << argv[1] << std::endl;
+    exit(EXIT_FAILURE);
   }
 
   /* Connect to shared memory and the message queue */
