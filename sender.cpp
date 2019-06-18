@@ -7,6 +7,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "common.h"
 
 /* The size of the shared memory segment */
 #define SHARED_MEMORY_CHUNK_SIZE 1000
@@ -27,7 +28,8 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
   1. Create a file called keyfile.txt containing string "Hello world" (you may
   do so manually or from the code).
   2. Use ftok("keyfile.txt", 'a') in order to generate the key. */
-  key_t key = ftok("keyfile.txt", 'a');
+  key_t key = generate_key();
+
   /*
   3. Use will use this key in the TODO's below. Use the same key for the queue
      and the shared memory segment. This also serves to illustrate the
@@ -40,13 +42,19 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
   /* TODO: Get the id of the shared memory segment. The size of the segment must
    * be SHARED_MEMORY_CHUNK_SIZE */
   if (-1 == (shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR))) {
-
+      bail("could not acquire shared memory id", errno);
   }
 
   /* TODO: Attach to the shared memory */
-  sharedMemPtr = (void *)shmat(shmid, NULL, 0);
+  if ((void*)-1 == (sharedMemPtr = (void *)shmat(shmid, NULL, 0))) {
+    bail("could not attach to shared memory segment", errno);
+  }
+
   /* TODO: Attach to the message queue */
-  msqid = msgget(key, S_IRUSR | S_IWUSR);
+  if (-1 == (msqid = msgget(key, S_IRUSR | S_IWUSR))) {
+    bail("could not attach to message queue", errno);
+  }
+
   /* Store the IDs and the pointer to the shared memory region in the
    * corresponding function parameters */
 }
@@ -56,7 +64,8 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
  */
 void cleanUp() {
   /* TODO: Detach from shared memory */
-  shmdt(sharedMemPtr);
+  if (-1 == shmdt(sharedMemPtr))
+    perror("cleanUp");
 }
 
 /**
@@ -96,8 +105,8 @@ unsigned long sendFile(const char *fileName) {
         fread(sharedMemPtr, sizeof(char), SHARED_MEMORY_CHUNK_SIZE, fp);
 
     if (sndMsg.size < 0) {
-      perror("fread");
-      exit(-1);
+      fclose(fp);
+      bail("failed to read file data", errno);
     }
 
     /* TODO: count the number of bytes sent. */
@@ -106,13 +115,19 @@ unsigned long sendFile(const char *fileName) {
      * data is ready to be read (message of type SENDER_DATA_TYPE).
      */
 		sndMsg.mtype = SENDER_DATA_TYPE;
-		msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0);
+		if (-1 == msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0)) {
+      fclose(fp);
+      bail("failed to send next data message", errno);
+    }
 
     /* TODO: Wait until the receiver sends us a message of type
      * RECV_DONE_TYPE telling us that he finished saving a chunk of
      * memory.
      */
-		 msgrcv(msqid, &rcvMsg, sizeof(ackMessage) - sizeof(long), 2, 0);
+		 if (-1 == msgrcv(msqid, &rcvMsg, sizeof(ackMessage) - sizeof(long), RECV_DONE_TYPE, 0)) {
+       fclose(fp);
+       bail("failed to receive ack message", errno);
+     }
   }
 
   /** TODO: once we are out of the above loop, we have finished sending the
@@ -122,7 +137,8 @@ unsigned long sendFile(const char *fileName) {
    */
 	 sndMsg.mtype = SENDER_DATA_TYPE;
 	 sndMsg.size = 0;
-	 msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0);
+	 if (-1 == msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0))
+    perror("msgsnd");
 
   /* Close the file */
   fclose(fp);
@@ -143,8 +159,7 @@ void sendFileName(const char *fileName) {
    * struct. If exceeds, then terminate with an error.
    */
 	 if(fileNameSize > MAX_FILE_NAME_SIZE) {
-		 perror("Max File Name Size Exceeded");
-		 exit(-1);
+		 bail("Max File Name Size Exceeded", EXIT_FAILURE);
 	 }
 
   /* TODO: Create an instance of the struct representing the message
@@ -155,15 +170,20 @@ void sendFileName(const char *fileName) {
   /* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
 	fMsg.mtype = FILE_NAME_TRANSFER_TYPE;
   /* TODO: Set the file name in the message */
-	for(int i = 0; i < fileNameSize; i++) {
-		fMsg.fileName[i] = *(fileName++);
-	}
-  fMsg.fileName[fileNameSize] = '\0';
+	// for(int i = 0; i < fileNameSize; i++) {
+	// 	fMsg.fileName[i] = *(fileName++);
+	// }
+  // fMsg.fileName[fileNameSize] = '\0';
 
-  std::cout << "File Name Size: " << fileNameSize << std::endl;
-  std::cout << "File name: " << fMsg.fileName << std::endl;
+  strncpy(fMsg.fileName, fileName, MAX_FILE_NAME_SIZE);
+
+  // std::cout << "File Name Size: " << fileNameSize << std::endl;
+  // std::cout << "File name: " << fMsg.fileName << std::endl;
+
   /* TODO: Send the message using msgsnd */
-	msgsnd(msqid, &fMsg, sizeof(fileNameMsg) - sizeof(long), 0);
+	if (-1 == msgsnd(msqid, &fMsg, sizeof(fileNameMsg) - sizeof(long), 0)) {
+    bail("could not send file name message", errno);
+  }
 }
 
 int main(int argc, char **argv) {

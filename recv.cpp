@@ -8,16 +8,12 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "common.h"
 
 using namespace std;
 
 /* The size of the shared memory segment */
 #define SHARED_MEMORY_CHUNK_SIZE 1000
-#define KEY_FILENAME "keyfile.txt"
-#define BUFFER_LEN 1024
-
-/* forward declarations */
-void bail(const char* msg, int exitCode);
 
 /* The ids for the shared memory segment and the message queue */
 int shmid = 0;
@@ -67,11 +63,7 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
   do so manually or from the code).
           // Did manually
   2. Use ftok("keyfile.txt", 'a') in order to generate the key. */
-  key_t key = ftok(KEY_FILENAME, 'a');
-
-  if (-1 == key) { // error has occurred
-    bail("Could not generate key -- make sure " KEY_FILENAME " exists", EXIT_FAILURE);
-  }
+  key_t key = generate_key();
 
   /*
 3. Use will use this key in the TODO's below. Use the same key for the queue
