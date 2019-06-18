@@ -125,7 +125,7 @@ unsigned long mainLoop(const char *fileName) {
      * song.mp3__recv.
      */
     message msg;
-    msgrcv(msqid, &msg, sizeof(message) - sizeof(long), 2, 0);
+    msgrcv(msqid, &msg, sizeof(message) - sizeof(long), SENDER_DATA_TYPE, 0);
     msgSize = msg.size;
 
     /* If the sender is not telling us that we are done, then get to work */

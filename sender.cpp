@@ -155,9 +155,11 @@ void sendFileName(const char *fileName) {
   /* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
 	fMsg.mtype = FILE_NAME_TRANSFER_TYPE;
   /* TODO: Set the file name in the message */
-	for(int i = 0; i < fileNameSize - 1; i++) {
+	for(int i = 0; i < fileNameSize; i++) {
 		fMsg.fileName[i] = *(fileName++);
 	}
+  fMsg.fileName[fileNameSize] = '\0';
+
   std::cout << "File Name Size: " << fileNameSize << std::endl;
   std::cout << "File name: " << fMsg.fileName << std::endl;
   /* TODO: Send the message using msgsnd */
