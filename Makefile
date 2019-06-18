@@ -1,17 +1,19 @@
 all:	sender recv
 
-sender:	sender.o
-	g++ sender.o -o sender
+sender:	sender.o common.o
+	g++ sender.o common.o -o sender
 
-recv:	recv.o
-	g++ recv.o -o recv
+recv:	recv.o common.o
+	g++ recv.o common.o -o recv
 
-sender.o:	 sender.cpp
+sender.o:	 sender.cpp common.h
 	g++ -c sender.cpp
 
-recv.o:	recv.cpp
+recv.o:	recv.cpp common.h
 	g++ -c recv.cpp
 
+common.o: common.cpp common.h
+	g++ -c common.cpp
 
 clean:
-	rm -rf *.o sender recv 
+	rm -rf *.o sender recv

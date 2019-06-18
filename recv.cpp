@@ -202,7 +202,7 @@ unsigned long mainLoop(const char *fileName) {
  * @param shmid - the id of the shared memory segment
  * @param msqid - the id of the message queue
  */
-void cleanUp(const int &shmid, const int &msqid, void *sharedMemPtr) {
+void cleanUp() {
   /* TODO: Detach from shared memory */
   if (sharedMemPtr != nullptr)
     shmdt(sharedMemPtr);
@@ -225,23 +225,9 @@ void cleanUp(const int &shmid, const int &msqid, void *sharedMemPtr) {
  */
 void ctrlCSignal(int signal) {
   /* Free system V resources */
-  cleanUp(shmid, msqid, sharedMemPtr);
+  cleanUp();
 }
 
-
-/**
- * Prints a failure message and cleans up any allocated resources
- * @param msg - failure message to display
- * @param exitCode - program exit code
- */
-void bail(const char* msg, int exitCode) {
-  if (errno != 0)
-    perror(msg);
-  else std::cout << msg << std::endl;
-
-  cleanUp(shmid, msqid, sharedMemPtr);
-  exit(exitCode);
-}
 
 int main(int argc, char **argv) {
 
@@ -267,7 +253,7 @@ int main(int argc, char **argv) {
    * and message queue (i.e. call cleanup)
    */
    std::cout << "Clean up" << std::endl;
-  cleanUp(shmid, msqid, sharedMemPtr);
+  cleanUp();
 
   return 0;
 }

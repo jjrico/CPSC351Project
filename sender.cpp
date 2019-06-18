@@ -39,7 +39,10 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
 
   /* TODO: Get the id of the shared memory segment. The size of the segment must
    * be SHARED_MEMORY_CHUNK_SIZE */
-  shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT);
+  if (-1 == (shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR))) {
+
+  }
+
   /* TODO: Attach to the shared memory */
   sharedMemPtr = (void *)shmat(shmid, NULL, 0);
   /* TODO: Attach to the message queue */
@@ -50,11 +53,8 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
 
 /**
  * Performs the cleanup functions
- * @param sharedMemPtr - the pointer to the shared memory
- * @param shmid - the id of the shared memory segment
- * @param msqid - the id of the message queue
  */
-void cleanUp(const int &shmid, const int &msqid, void *sharedMemPtr) {
+void cleanUp() {
   /* TODO: Detach from shared memory */
   shmdt(sharedMemPtr);
 }
@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
   fprintf(stderr, "The number of bytes sent is %lu\n", sendFile(argv[1]));
 
   /* Cleanup */
-  cleanUp(shmid, msqid, sharedMemPtr);
+  cleanUp();
 
   return 0;
 }
