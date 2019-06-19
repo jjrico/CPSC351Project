@@ -27,6 +27,7 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
   1. Create a file called keyfile.txt containing string "Hello world" (you may
   do so manually or from the code).
   2. Use ftok("keyfile.txt", 'a') in order to generate the key. */
+  std::cout << "\tCreating unique key..." << std::endl;
   key_t key = ftok("keyfile.txt", 'a');
   /*
   3. Use will use this key in the TODO's below. Use the same key for the queue
@@ -39,11 +40,18 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
 
   /* TODO: Get the id of the shared memory segment. The size of the segment must
    * be SHARED_MEMORY_CHUNK_SIZE */
+
+  std::cout << "\tObtaining id to shared memory..." << std::endl;
   shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT);
+
   /* TODO: Attach to the shared memory */
+  std::cout << "\tAttaching to shared memory..." << std::endl;
   sharedMemPtr = (void *)shmat(shmid, NULL, 0);
+
   /* TODO: Attach to the message queue */
+  std::cout << "\tAttaching to message queue..." << std::endl;
   msqid = msgget(key, S_IRUSR | S_IWUSR);
+
   /* Store the IDs and the pointer to the shared memory region in the
    * corresponding function parameters */
 }
@@ -56,6 +64,7 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
  */
 void cleanUp(const int &shmid, const int &msqid, void *sharedMemPtr) {
   /* TODO: Detach from shared memory */
+  std::cout << "\tDetaching from shared memory..." << std::endl;
   shmdt(sharedMemPtr);
 }
 
@@ -158,10 +167,7 @@ void sendFileName(const char *fileName) {
 	for(int i = 0; i < fileNameSize; i++) {
 		fMsg.fileName[i] = *(fileName++);
 	}
-  fMsg.fileName[fileNameSize] = '\0';
-
-  std::cout << "File Name Size: " << fileNameSize << std::endl;
-  std::cout << "File name: " << fMsg.fileName << std::endl;
+  fMsg.fileName[fileNameSize] = '\0'; //terminate string with null
   /* TODO: Send the message using msgsnd */
 	msgsnd(msqid, &fMsg, sizeof(fileNameMsg) - sizeof(long), 0);
 }
@@ -175,15 +181,19 @@ int main(int argc, char **argv) {
   }
 
   /* Connect to shared memory and the message queue */
+  std::cout << "Connecting to shared memory..." << std::endl;
   init(shmid, msqid, sharedMemPtr);
 
   /* Send the name of the file */
+  std::cout << "Sending file name: " << argv[1] << std::endl;
   sendFileName(argv[1]);
 
   /* Send the file */
+  std::cout << "Sending file contents..." << std::endl;
   fprintf(stderr, "The number of bytes sent is %lu\n", sendFile(argv[1]));
 
   /* Cleanup */
+  std::cout << "Cleaning up..." << std::endl;
   cleanUp(shmid, msqid, sharedMemPtr);
 
   return 0;

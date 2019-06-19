@@ -34,13 +34,14 @@ string recvFileName() {
   fileNameMsg fMsg;
 
   /* TODO: Receive the file name using msgrcv() */
-  std::cout << "Hello" << std::endl;
-  msgrcv(msqid, &fMsg, sizeof(fileNameMsg) - sizeof(long), FILE_NAME_TRANSFER_TYPE, 0);
-  //perror(strerror(errno));
- std::cout << "err: " << errno << endl;
+  std::cout << "\tReady to recieve file name..." << std::endl;
+  msgrcv(msqid, &fMsg, sizeof(fileNameMsg) - sizeof(long),
+         FILE_NAME_TRANSFER_TYPE, 0);
+  // perror(strerror(errno));
+  // std::cout << "err: " << errno << endl;
 
   /* TODO: return the received file name */
-  std::cout << "File name: " << fMsg.fileName << std::endl;
+  std::cout << "\tRecieved file name: " << fMsg.fileName << std::endl;
   fileName = fMsg.fileName;
 
   return fileName;
@@ -58,6 +59,7 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
   do so manually or from the code).
           // Did manually
   2. Use ftok("keyfile.txt", 'a') in order to generate the key. */
+  std::cout << "\tCreating unique key..." << std::endl;
   key_t key = ftok("keyfile.txt", 'a');
   /*
 3. Use will use this key in the TODO's below. Use the same key for the queue
@@ -69,12 +71,17 @@ on the system has a unique id, but different objects may have the same key.
 
   /* TODO: Allocate a shared memory segment. The size of the segment must be
    * SHARED_MEMORY_CHUNK_SIZE. */
+  std::cout << "\tAllocating shared memory..." << std::endl;
   shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT);
 
   /* TODO: Attach to the shared memory */
+  std::cout << "\tAttaching to shared memory..." << std::endl;
   sharedMemPtr = (void *)shmat(shmid, NULL, 0);
+
   /* TODO: Create a message queue */
+  std::cout << "\tAttaching to message queue..." << std::endl;
   msqid = msgget(key, S_IRUSR | S_IWUSR | IPC_CREAT);
+
   /* TODO: Store the IDs and the pointer to the shared memory region in the
    * corresponding parameters */
 }
@@ -109,6 +116,7 @@ unsigned long mainLoop(const char *fileName) {
   /* Keep receiving until the sender sets the size to 0, indicating that
    * there is no more data to send.
    */
+  std::cout << "\tRecieving file from sender..." << std::endl;
   while (msgSize != 0) {
 
     /* TODO: Receive the message and get the value of the size field. The
@@ -148,6 +156,8 @@ unsigned long mainLoop(const char *fileName) {
     /* We are done */
     else {
       /* Close the file */
+      std::cout << "\tMessage was succesfully stored to " << recvFileNameStr
+                << std::endl;
       fclose(fp);
     }
   }
@@ -163,10 +173,13 @@ unsigned long mainLoop(const char *fileName) {
  */
 void cleanUp(const int &shmid, const int &msqid, void *sharedMemPtr) {
   /* TODO: Detach from shared memory */
+  std::cout << "\tDetaching from shared memory..." << std::endl;
   shmdt(sharedMemPtr);
   /* TODO: Deallocate the shared memory segment */
+  std::cout << "\tDeallocating shared memory segment..." << std::endl;
   shmctl(shmid, IPC_RMID, NULL);
   /* TODO: Deallocate the message queue */
+  std::cout << "\tDeallocating message queue..." << std::endl;
   msgctl(msqid, IPC_RMID, NULL);
 }
 
@@ -175,6 +188,7 @@ void cleanUp(const int &shmid, const int &msqid, void *sharedMemPtr) {
  * @param signal - the signal type
  */
 void ctrlCSignal(int signal) {
+  std::cout << "\nCtrl + C entered: cleaning memory..." << std::endl;
   /* Free system V resources */
   cleanUp(shmid, msqid, sharedMemPtr);
 }
@@ -186,25 +200,25 @@ int main(int argc, char **argv) {
    * queue and the shared memory segment before exiting. You may add
    * the cleaning functionality in ctrlCSignal().
    */
-  std::cout << "Calling signal" << std::endl;
   signal(SIGINT, ctrlCSignal);
+
   /* Initialize */
-  std::cout << "Initializing shared memory" << std::endl;
+  std::cout << "Initializing shared memory..." << std::endl;
   init(shmid, msqid, sharedMemPtr);
 
   /* Receive the file name from the sender */
-  std::cout << "Recieving filename" << std::endl;
+  std::cout << "Recieving filename..." << std::endl;
   string fileName = recvFileName();
 
   /* Go to the main loop */
-  std::cout << "Main loop" << std::endl;
+  std::cout << "Recieving initialized." << std::endl;
   fprintf(stderr, "The number of bytes received is: %lu\n",
           mainLoop(fileName.c_str()));
 
   /* TODO: Detach from shared memory segment, and deallocate shared memory
    * and message queue (i.e. call cleanup)
    */
-   std::cout << "Clean up" << std::endl;
+  std::cout << "Cleaning up..." << std::endl;
   cleanUp(shmid, msqid, sharedMemPtr);
 
   return 0;
