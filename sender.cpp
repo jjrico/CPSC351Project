@@ -68,8 +68,9 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
  */
 void cleanUp() {
   /* Detach from shared memory */
-  std::cout << "\tDetaching from shared memory..." << std::endl;
-  shmdt(sharedMemPtr);
+  std::cout << "Detaching from shared memory..." << std::endl;
+  if (-1 == shmdt(sharedMemPtr))
+    perror("failed to detach from shared memory");
 }
 
 /**
