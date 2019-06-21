@@ -24,7 +24,7 @@ void *sharedMemPtr;
  * @param msqid - the id of the allocated message queue
  */
 void init(int &shmid, int &msqid, void *&sharedMemPtr) {
-  /* TODO:
+  /*
   1. Create a file called keyfile.txt containing string "Hello world" (you may
   do so manually or from the code).
   2. Use ftok("keyfile.txt", 'a') in order to generate the key. */
@@ -40,25 +40,24 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
   have the same key.
   */
 
-  /* TODO: Get the id of the shared memory segment. The size of the segment must
+  /* Get the id of the shared memory segment. The size of the segment must
    * be SHARED_MEMORY_CHUNK_SIZE */
    std::cout << "\tObtaining id to shared memory..." << std::endl;
   if (-1 == (shmid = shmget(key, SHARED_MEMORY_CHUNK_SIZE, S_IRUSR))) {
       bail("could not acquire shared memory id", errno);
   }
 
-  /* TODO: Attach to the shared memory */
+  /* Attach to the shared memory */
   std::cout << "\tAttaching to shared memory..." << std::endl;
   if ((void*)-1 == (sharedMemPtr = (void *)shmat(shmid, NULL, 0))) {
     bail("could not attach to shared memory segment", errno);
   }
 
-  /* TODO: Attach to the message queue */
+  /* Attach to the message queue */
     std::cout << "\tAttaching to message queue..." << std::endl;
   if (-1 == (msqid = msgget(key, S_IRUSR | S_IWUSR))) {
     bail("could not attach to message queue", errno);
   }
->>>>>>> allen_errorhandling
 
   /* Store the IDs and the pointer to the shared memory region in the
    * corresponding function parameters */
@@ -68,7 +67,7 @@ void init(int &shmid, int &msqid, void *&sharedMemPtr) {
  * Performs the cleanup functions
  */
 void cleanUp() {
-  /* TODO: Detach from shared memory */
+  /* Detach from shared memory */
   std::cout << "\tDetaching from shared memory..." << std::endl;
   shmdt(sharedMemPtr);
 }
@@ -114,9 +113,11 @@ unsigned long sendFile(const char *fileName) {
       bail("failed to read file data", errno);
     }
 
-    /* TODO: count the number of bytes sent. */
+    /* count the number of bytes sent. */
+
 		numBytesSent += sndMsg.size;
-    /* TODO: Send a message to the receiver telling him that the
+
+    /* Send a message to the receiver telling him that the
      * data is ready to be read (message of type SENDER_DATA_TYPE).
      */
 		sndMsg.mtype = SENDER_DATA_TYPE;
@@ -125,7 +126,7 @@ unsigned long sendFile(const char *fileName) {
       bail("failed to send next data message", errno);
     }
 
-    /* TODO: Wait until the receiver sends us a message of type
+    /* Wait until the receiver sends us a message of type
      * RECV_DONE_TYPE telling us that he finished saving a chunk of
      * memory.
      */
@@ -135,7 +136,7 @@ unsigned long sendFile(const char *fileName) {
      }
   }
 
-  /** TODO: once we are out of the above loop, we have finished sending the
+  /** once we are out of the above loop, we have finished sending the
    * file. Lets tell the receiver that we have nothing more to send. We will do
    * this by sending a message of type SENDER_DATA_TYPE with size field set to
    * 0.
@@ -159,7 +160,7 @@ void sendFileName(const char *fileName) {
   /* Get the length of the file name */
   int fileNameSize = strlen(fileName);
 
-  /* TODO: Make sure the file name does not exceed
+  /* Make sure the file name does not exceed
    * the maximum buffer size in the fileNameMsg
    * struct. If exceeds, then terminate with an error.
    */
@@ -167,17 +168,17 @@ void sendFileName(const char *fileName) {
 		 bail("Max File Name Size Exceeded", EXIT_FAILURE);
 	 }
 
-  /* TODO: Create an instance of the struct representing the message
+  /* Create an instance of the struct representing the message
    * containing the name of the file.
    */
 	 fileNameMsg fMsg;
 
-  /* TODO: Set the message type FILE_NAME_TRANSFER_TYPE */
+  /* Set the message type FILE_NAME_TRANSFER_TYPE */
 	fMsg.mtype = FILE_NAME_TRANSFER_TYPE;
-  /* TODO: Set the file name in the message */
+  /* Set the file name in the message */
   strncpy(fMsg.fileName, fileName, MAX_FILE_NAME_SIZE);
 
-  /* TODO: Send the message using msgsnd */
+  /* Send the message using msgsnd */
 	if (-1 == msgsnd(msqid, &fMsg, sizeof(fileNameMsg) - sizeof(long), 0)) {
     bail("could not send file name message", errno);
   }
