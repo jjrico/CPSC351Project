@@ -249,7 +249,7 @@ int main(int argc, char **argv) {
   /* Initialize */
 
   std::cout << "Initializing shared resources..." << std::endl;
-  init();
+  init(shmid, msqid, sharedMemPtr);
 
   /* Receive the file name from the sender */
   std::cout << "Recieving filename..." << std::endl;

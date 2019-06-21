@@ -29,6 +29,10 @@ void bail(const char* msg, int exitCode) {
 }
 
 
+/**
+ * Generates key used for both sender and receiver using ftok. If the
+ * key file does not exist, it will be created.
+ */
 key_t generate_key() {
     struct stat fStat;
     key_t key;
