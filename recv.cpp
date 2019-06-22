@@ -198,7 +198,7 @@ unsigned long mainLoop(const char *fileName) {
     /* We are done */
     else {
       /* Close the file */
-      std::cout << "\t" << recvFileNameStr << "saved successfully!"
+      std::cout << "\t" << recvFileNameStr << " saved successfully!"
                 << std::endl;
       fclose(fp);
     }
