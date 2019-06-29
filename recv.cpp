@@ -69,19 +69,16 @@ string recvFileName() {
  */
 void init(int &shmid, int &msqid, void *&sharedMemPtr) {
   /*
-  1. Create a file called keyfile.txt containing string "Hello world" (you may
+  Create a file called keyfile.txt containing string "Hello world" (you may
   do so manually or from the code).
           // Did manually
-  2. Use ftok("keyfile.txt", 'a') in order to generate the key. */
+  Use ftok("keyfile.txt", 'a') in order to generate the key. */
   std::cout << "\tCreating unique key..." << std::endl;
   key_t key = generate_key();
 
   /*
-3. Use will use this key in the TODO's below. Use the same key for the queue
-and the shared memory segment. This also serves to illustrate the difference
-between the key and the id used in message queues and shared memory. The key is
-like the file name and the id is like the file object.  Every System V object
-on the system has a unique id, but different objects may have the same key.
+We will use this key in the segments below. Use the same key for the queue
+and the shared memory segment.
 */
 
   /* Allocate a shared memory segment. The size of the segment must be
@@ -161,7 +158,7 @@ unsigned long mainLoop(const char *fileName) {
      * the shared memory segment to the file. Otherwise, if 0, then we close the
      * file and exit.
      *
-     * NOTE: the received file will always be saved into the file called
+     * The received file will always be saved into the file called
      * <ORIGINAL FILENAME__recv>. For example, if the name of the original
      * file is song.mp3, the name of the received file is going to be
      * song.mp3__recv.
